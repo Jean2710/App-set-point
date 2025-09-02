@@ -1,3 +1,57 @@
+# ----------------------------
+# Inicialização e instalação condicional
+# ----------------------------
+import sys
+import subprocess
+
+# Tenta importar plotly; se não estiver instalado, instala automaticamente
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly==6.3.0"])
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+# ----------------------------
+# Imports principais
+# ----------------------------
+import streamlit as st
+import pandas as pd
+import base64
+from io import BytesIO
+import re
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.lib.pagesizes import A4
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+
+# ----------------------------
+# Funções auxiliares
+# ----------------------------
+def titulo_com_logo(texto: str, logo_base64: str, largura: int = 50):
+    st.markdown(
+        f"""
+        <h3 style="display: flex; align-items: center;">
+            <img src="data:image/png;base64,{logo_base64}" 
+                 width="{largura}" style="margin-right:8px;">
+            {texto}
+        </h3>
+        """,
+        unsafe_allow_html=True
+    )
+
+def carregar_logo_base64(caminho: str) -> str:
+    with open(caminho, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# (O resto do seu código continua aqui exatamente como você já tinha...)
+
+
+
 import streamlit as st
 import pandas as pd
 import base64
