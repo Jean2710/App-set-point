@@ -4,6 +4,12 @@
 import sys
 import subprocess
 
+try:
+    import kaleido
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "kaleido"])
+    import kaleido
+
 # Tenta importar plotly; se não estiver instalado, instala automaticamente
 try:
     import plotly.express as px
