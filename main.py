@@ -8,10 +8,12 @@ import subprocess
 try:
     import plotly.express as px
     import plotly.graph_objects as go
+    import plotly.io as pio
 except ModuleNotFoundError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly==6.3.0"])
     import plotly.express as px
     import plotly.graph_objects as go
+    import plotly.io as pio
 
 # ----------------------------
 # Imports principais
@@ -21,34 +23,13 @@ import pandas as pd
 import base64
 from io import BytesIO
 import re
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.pagesizes import A4
 from datetime import datetime
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-import plotly.express as px
-import plotly.io as pio
-import plotly.graph_objects as go
-# ----------------------------
-# Funções auxiliares
-# ----------------------------
-def titulo_com_logo(texto: str, logo_base64: str, largura: int = 50):
-    st.markdown(
-        f"""
-        <h3 style="display: flex; align-items: center;">
-            <img src="data:image/png;base64,{logo_base64}" 
-                 width="{largura}" style="margin-right:8px;">
-            {texto}
-        </h3>
-        """,
-        unsafe_allow_html=True
-    )
 
-def carregar_logo_base64(caminho: str) -> str:
-    with open(caminho, "rb") as f:
-        return base64.b64encode(f.read()).decode()
 # ----------------------------
 # Funções auxiliares
 # ----------------------------
@@ -128,6 +109,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
+# ----------------------------
 # Seleção de capacidade
 # ----------------------------
 st.sidebar.markdown("## Seleção da capacidade")
@@ -158,7 +140,9 @@ capacidade_to_dn = {
     55000: "DN 32"
 }
 
-st.sidebar.markdown("## Setup de cores")
+# ----------------------------
+# Setup de cores
+# ----------------------------
 opcoes_cores = ["#00ffea", "#ff00ff", "#00ff00", "#ff0000"]
 cor_titulo = st.sidebar.selectbox("Seleção da cor do título", opcoes_cores)
 cor_hover_logo = st.sidebar.selectbox("Seleção da cor da logo", opcoes_cores)
@@ -168,7 +152,6 @@ cor_hover_logo = st.sidebar.selectbox("Seleção da cor da logo", opcoes_cores)
 # ----------------------------
 logo_path = "valvula.png"
 logo_base64 = carregar_logo_base64(logo_path)
-
 st.markdown(f"""
 <style>
 @keyframes glow {{
@@ -238,7 +221,6 @@ with col1_dn:
             dn_choice = dn_choice_auto
             st.success(f"DN selecionado automaticamente: **{dn_choice}**")
         else:
-            st.warning(f"DN automático '{wanted_dn_label}' não encontrado. Escolha manualmente:")
             dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_manual_fallback")
     else:
         dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_manual")
@@ -250,21 +232,17 @@ with col2_vaz:
 # Multiselect para comparar DNs
 # ----------------------------
 with st.expander("Comparar múltiplos DNs"):
-    if dn_options is not None:
-        dn_comparar = st.multiselect(
-            "Comparar múltiplos DNs",
-            options=dn_options,
-            key="dn_comparativo"
-        )
-    else:
-        dn_comparar = []
+    dn_comparar = st.multiselect(
+        "Comparar múltiplos DNs",
+        options=dn_options,
+        key="dn_comparativo"
+    )
 
 # ----------------------------
-# Cálculo do ajuste (dinâmico)
+# Cálculo do ajuste
 # ----------------------------
 ajuste = None
 vazao_lh = None
-
 if dn_choice and flow_m3h > 0:
     flow_lh = flow_m3h * 1000
     melhor_linha = df_valvulas.iloc[(df_valvulas[dn_choice] - flow_lh).abs().argsort()[0]]
@@ -275,7 +253,7 @@ if dn_choice and flow_m3h > 0:
 # ----------------------------
 # Mostrar resultados
 # ----------------------------
-if ajuste is not None and vazao_lh is not None:
+if ajuste and vazao_lh:
     st.markdown("### Resultado")
     col1, col2 = st.columns(2)
     with col1:
@@ -284,25 +262,18 @@ if ajuste is not None and vazao_lh is not None:
         st.write(f"🔧 Ajuste recomendado: **{ajuste}%** → ({vazao_lh:.0f} L/h)")
 
 # ----------------------------
+# Gráfico interativo
 # ----------------------------
-# Gráfico interativo aprimorado
-with st.expander("Visualizar curvas das válvulas"):
-    if dn_choice is not None and dn_choice != "":
+with st.expander("📊 Visualizar curvas das válvulas"):
+    if dn_choice:
         st.markdown("### Curvas das válvulas")
         df_plot = df_valvulas[['Setting (%)', dn_choice]].copy()
-        
-        fig = px.line(
-            df_plot,
-            x='Setting (%)',
-            y=dn_choice,
-            markers=True,
-            labels={'Setting (%)':'Setting (%)', dn_choice:'Vazão (L/h)'},
-            title=f"Curva de ajuste {dn_choice}"
-        )
-        
+        fig = px.line(df_plot, x='Setting (%)', y=dn_choice, markers=True,
+                      labels={'Setting (%)':'Setting (%)', dn_choice:'Vazão (L/h)'},
+                      title=f"Curva de ajuste {dn_choice}")
+
         # Ponto recomendado
-        if ajuste is not None and vazao_lh is not None:
-            # Encontrar índice da linha mais próxima da vazão
+        if ajuste and vazao_lh:
             idx = (df_plot[dn_choice] - vazao_lh).abs().idxmin()
             fig.add_scatter(
                 x=[df_plot.loc[idx, 'Setting (%)']],
@@ -316,40 +287,24 @@ with st.expander("Visualizar curvas das válvulas"):
 
         # Comparar múltiplos DNs
         for dn in dn_comparar:
-            if dn is not None and dn != "" and dn in df_valvulas.columns:
+            if dn in df_valvulas.columns:
                 df_tmp = df_valvulas[['Setting (%)', dn]].copy()
-                fig.add_scatter(
-                    x=df_tmp['Setting (%)'],
-                    y=df_tmp[dn],
-                    mode='lines+markers',
-                    name=f"DN {dn}"
-                )
+                fig.add_scatter(x=df_tmp['Setting (%)'], y=df_tmp[dn], mode='lines+markers', name=f"DN {dn}")
 
-        # Customizações visuais
-        fig.update_layout(
-            template='plotly_dark',
-            title_font=dict(family='Orbitron, monospace', size=22, color=cor_titulo),
-            legend=dict(title='Legenda', font=dict(family='Orbitron, monospace', size=12)),
-            xaxis=dict(title='Setting (%)', showgrid=True, gridcolor='#333'),
-            yaxis=dict(title='Vazão (L/h)', showgrid=True, gridcolor='#333'),
-            plot_bgcolor='#111111',
-            paper_bgcolor='#111111'
-        )
-        
+        fig.update_layout(template='plotly_dark', title_font=dict(family='Orbitron, monospace', size=22, color=cor_titulo),
+                          legend=dict(title='Legenda', font=dict(family='Orbitron, monospace', size=12)),
+                          xaxis=dict(title='Setting (%)', showgrid=True, gridcolor='#333'),
+                          yaxis=dict(title='Vazão (L/h)', showgrid=True, gridcolor='#333'),
+                          plot_bgcolor='#111111', paper_bgcolor='#111111')
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Selecione um DN para visualizar o gráfico.")
 
-
-# ----------------------------
-# Subheader da tabela
-# ----------------------------
-logo_base64_fab = carregar_logo_base64("logo_fabricante.png")
-titulo_com_logo("Tabela de referência Danfoss (L/h)", logo_base64_fab, largura=70)
-
 # ----------------------------
 # Tabela Neon
 # ----------------------------
+logo_base64_fab = carregar_logo_base64("logo_fabricante.png")
+titulo_com_logo("Tabela de referência Danfoss (L/h)", logo_base64_fab, largura=70)
 df_display = df_valvulas.copy()
 def neon_pulse_style(row):
     styles = []
@@ -360,19 +315,16 @@ def neon_pulse_style(row):
             else:
                 diff = abs(row[col] - vazao_lh)
                 intensity = max(0, 1 - diff / vazao_lh)
-                glow = f"text-shadow: 0 0 {5*intensity}px {cor_titulo}; color: {cor_titulo};"
-                styles.append(glow)
+                styles.append(f"text-shadow: 0 0 {5*intensity}px {cor_titulo}; color: {cor_titulo};")
         else:
             styles.append("")
     return styles
-
 st.dataframe(df_display.style.apply(neon_pulse_style, axis=1), hide_index=True)
 
 # ----------------------------
-# Botão de exportação Excel
+# Exportação Excel
 # ----------------------------
-if ajuste is not None and vazao_lh is not None:
-    st.markdown("### Exportar resultados")
+if ajuste and vazao_lh:
     excel_bytes = gerar_excel(df_display, ajuste, vazao_lh)
     st.download_button(
         label="📥 Baixar Excel",
@@ -381,94 +333,100 @@ if ajuste is not None and vazao_lh is not None:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ---------------------------
-# Função para rodapé e fundo
-# ---------------------------
+# ----------------------------
+# Funções PDF
+# ----------------------------
 def add_footer_and_background(canvas, doc):
-    # Fundo preto
     canvas.setFillColor(colors.black)
     canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], stroke=0, fill=1)
-
-    # Texto do rodapé (data e hora)
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     canvas.setFillColor(colors.white)
     canvas.setFont("Helvetica", 8)
     canvas.drawRightString(doc.pagesize[0] - 1 * cm, 1 * cm, f"Gerado em: {data_hora}")
 
-# ---------------------------
-# Função para gerar PDF
-# ---------------------------
-def gerar_pdf_multiplos(dn_list, df_valvulas, observacao):
+def gerar_pdf_final(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     story = []
 
     styles = getSampleStyleSheet()
-    titulo_style = ParagraphStyle(
-        'Titulo',
-        parent=styles['Heading1'],
-        textColor=colors.white,
-        alignment=1,  # centralizado
-        fontSize=16,
-        spaceAfter=20
-    )
-    texto_style = ParagraphStyle(
-        'Texto',
-        parent=styles['Normal'],
-        textColor=colors.white,
-        fontSize=11
-    )
+    titulo_style = ParagraphStyle('Titulo', parent=styles['Heading1'], textColor=colors.white,
+                                  alignment=1, fontSize=16, spaceAfter=12)
+    texto_style = ParagraphStyle('Texto', parent=styles['Normal'], textColor=colors.white, fontSize=10)
 
-    for dn_choice in dn_list:
-        # Gera gráfico Plotly
+    # Gráfico com todas as DNs
+    if dn_list:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df_valvulas["Setting (%)"],
-            y=df_valvulas[dn_choice],
-            mode='lines+markers',
-            name=f"DN {dn_choice}"
-        ))
-        fig.update_layout(
-            title=f"Curva de Vazão - DN {dn_choice}",
-            xaxis_title="Setting (%)",
-            yaxis_title="Vazão (L/h)",
-            template="plotly_dark"
-        )
+        for dn_choice in dn_list:
+            fig.add_trace(go.Scatter(
+                x=df_valvulas["Setting (%)"], y=df_valvulas[dn_choice],
+                mode='lines+markers', name=f"DN {dn_choice}"
+            ))
+        # Ponto recomendado
+        if ajuste and vazao_lh and dn_choice in dn_list:
+            idx = (df_valvulas[dn_choice] - vazao_lh).abs().idxmin()
+            fig.add_scatter(
+                x=[df_valvulas.loc[idx, 'Setting (%)']],
+                y=[df_valvulas.loc[idx, dn_choice]],
+                mode='markers+text',
+                marker=dict(color='red', size=14, symbol='star'),
+                text=[f"💧 {vazao_lh:.0f} L/h"],
+                textposition='top center',
+                name='Ponto recomendado'
+            )
 
-        # Exporta gráfico como PNG
+        fig.update_layout(title="Curvas de Vazão Selecionadas",
+                          xaxis_title="Setting (%)", yaxis_title="Vazão (L/h)", template="plotly_dark")
         img_bytes = pio.to_image(fig, format="png", width=800, height=500)
-
-        # Adiciona ao PDF
-        story.append(Paragraph(f"Relatório da Válvula DN {dn_choice}", titulo_style))
-        if observacao:
-            story.append(Paragraph(f"Observações: {observacao}", texto_style))
-            story.append(Spacer(1, 12))
+        story.append(Paragraph("Gráfico de Curvas Selecionadas", titulo_style))
         story.append(Image(BytesIO(img_bytes), width=16*cm, height=10*cm))
-        story.append(PageBreak())
+        story.append(Spacer(1, 12))
+
+    # Tabela
+    if dn_list:
+        df_pdf = df_valvulas[['Setting (%)'] + dn_list].copy()
+        data_table = [df_pdf.columns.tolist()] + df_pdf.values.tolist()
+        table = Table(data_table, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#222222')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.gray),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#111111')),
+            ('TEXTCOLOR', (0,1), (-1,-1), colors.white)
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 12))
+
+    # Observações
+    if observacao:
+        story.append(Paragraph(f"Observações: {observacao}", texto_style))
+        story.append(Spacer(1, 12))
 
     doc.build(story, onFirstPage=add_footer_and_background, onLaterPages=add_footer_and_background)
     buffer.seek(0)
-    return buffer
+    return buffer.getvalue()
 
-# ---------------------------
-# Streamlit
-# ---------------------------
+# ----------------------------
+# Exportação PDF
+# ----------------------------
 st.sidebar.header("Exportação")
-
-# Campo de observação no APP
 observacao = st.sidebar.text_area("Observações para incluir no PDF:")
-
 if st.sidebar.button("📄 Exportar PDF"):
-    if "dn_comparar" in st.session_state and st.session_state["dn_comparar"]:
-        pdf_bytes = gerar_pdf_multiplos(st.session_state["dn_comparar"], df_valvulas, observacao)
+    if st.session_state["dn_comparativo"]:
+        pdf_bytes = gerar_pdf_final(st.session_state["dn_comparativo"], df_valvulas, observacao, ajuste, vazao_lh)
         st.download_button(
-            "📥 Baixar PDF",
+            label="📥 Baixar PDF",
             data=pdf_bytes,
             file_name="relatorio_valvulas.pdf",
             mime="application/pdf"
         )
     else:
         st.warning("Selecione ao menos um DN para gerar o PDF.")
+
+
+
+
 
 
 
