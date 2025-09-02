@@ -28,7 +28,9 @@ from reportlab.lib.pagesizes import A4
 from datetime import datetime
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-
+import plotly.express as px
+import plotly.io as pio
+import plotly.graph_objects as go
 # ----------------------------
 # Funções auxiliares
 # ----------------------------
@@ -47,25 +49,6 @@ def titulo_com_logo(texto: str, logo_base64: str, largura: int = 50):
 def carregar_logo_base64(caminho: str) -> str:
     with open(caminho, "rb") as f:
         return base64.b64encode(f.read()).decode()
-
-# (O resto do seu código continua aqui exatamente como você já tinha...)
-
-
-import streamlit as st
-import pandas as pd
-import base64
-from io import BytesIO
-import re
-import plotly.express as px
-import plotly.io as pio
-import plotly.graph_objects as go
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.lib.pagesizes import A4
-from datetime import datetime
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
 # ----------------------------
 # Funções auxiliares
 # ----------------------------
