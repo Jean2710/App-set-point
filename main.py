@@ -51,7 +51,6 @@ def carregar_logo_base64(caminho: str) -> str:
 # (O resto do seu código continua aqui exatamente como você já tinha...)
 
 
-
 import streamlit as st
 import pandas as pd
 import base64
@@ -111,8 +110,8 @@ def find_matching_dn_column(dn_label, dn_options):
 # ----------------------------
 # Carregar dados
 # ----------------------------
-df_valvulas = pd.read_excel("C:/Users/user/Desktop/app.setpoint/tabela_valvulas.xlsx")
-df_maquinas = pd.read_excel("C:/Users/user/desktop/app.setpoint/Relação de capacidade das máquinas.xlsx")
+df_valvulas = pd.read_excel("tabela_valvulas.xlsx")
+df_maquinas = pd.read_excel("Relação de capacidade das máquinas.xlsx")
 
 # ----------------------------
 # Processar tabela válvulas
