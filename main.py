@@ -204,7 +204,7 @@ st.markdown(f"""
          " />
     <h1 style="
         margin: 0; 
-        font-size: 2.5rem; 
+        font-size: 2.0rem; 
         line-height: 1.2; 
         animation: glow 3s infinite;
         font-family: 'Orbitron', monospace;
