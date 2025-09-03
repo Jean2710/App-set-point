@@ -176,8 +176,8 @@ st.markdown(f"""
 # ----------------------------
 def limpar_selecoes():
     st.session_state["selecao_cap"] = "Selecione..."
-    st.session_state["dn_manual"] = None
-    st.session_state["dn_manual_fallback"] = None
+    st.session_state["dn_manual"] = dn_options[0] if dn_options else None
+    st.session_state["dn_manual_fallback"] = dn_options[0] if dn_options else None
     st.session_state["dn_comparativo"] = []
     st.session_state["flow_m3h"] = 0.0
 
