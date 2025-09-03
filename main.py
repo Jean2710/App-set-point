@@ -197,7 +197,8 @@ with col1_dn:
             dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
     else:
         dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
-
+with col2_vaz:
+    flow_m3h = st.number_input("Digite a vazão de projeto (m³/h):", min_value=0.0, step=0.01, key="flow_m3h")
 # ----------------------------
 # Multiselect para comparar DNs
 # ----------------------------
