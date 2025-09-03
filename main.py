@@ -176,8 +176,7 @@ st.markdown(f"""
 # ----------------------------
 def limpar_selecoes():
     st.session_state["selecao_cap"] = "Selecione..."
-    st.session_state["dn_manual"] = dn_options[0] if dn_options else None
-    st.session_state["dn_manual_fallback"] = dn_options[0] if dn_options else None
+    st.session_state["dn_escolhido"] = dn_options[0] if dn_options else None
     st.session_state["dn_comparativo"] = []
     st.session_state["flow_m3h"] = 0.0
 
@@ -195,12 +194,9 @@ with col1_dn:
             dn_choice = dn_choice_auto
             st.success(f"DN selecionado automaticamente: **{dn_choice}**")
         else:
-            dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_manual_fallback")
+            dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
     else:
-        dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_manual")
-
-with col2_vaz:
-    flow_m3h = st.number_input("Digite a vazão de projeto (m³/h):", min_value=0.0, step=0.01, key="flow_m3h")
+        dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
 
 # ----------------------------
 # Multiselect para comparar DNs
