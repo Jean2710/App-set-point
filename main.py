@@ -165,6 +165,10 @@ st.markdown(f"""
     cursor: pointer;
 }}
 </style>
+<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; background-color: #111; padding: 10px 15px; border-radius: 10px;">
+    <img src="data:image/png;base64,{logo_base64}" class="logo-hover" style="max-height: 75px; width: auto; background: linear-gradient(135deg, #ffffff, #dddddd); padding: 5px; border-radius: 8px;" />
+    <h1 style="margin: 0; font-size: 2.0rem; line-height: 1.2; animation: glow 3s infinite; font-family: 'Orbitron', monospace;">Valve Calibration AB-QM</h1>
+</div>
 """, unsafe_allow_html=True)
 
 # ----------------------------
@@ -232,6 +236,74 @@ if ajuste and vazao_lh:
         st.write(f"🔧 Ajuste recomendado: **{ajuste}%** → ({vazao_lh:.0f} L/h)")
 
 # ----------------------------
+# Gráfico interativo
+# ----------------------------
+with st.expander("📊 Visualizar curvas das válvulas"):
+    if dn_choice:
+        df_plot = df_valvulas[['Setting (%)', dn_choice]].copy()
+        fig = px.line(df_plot, x='Setting (%)', y=dn_choice, markers=True,
+                      labels={'Setting (%)':'Setting (%)', dn_choice:'Vazão (L/h)'},
+                      title=f"Curva de ajuste {dn_choice}")
+        # Ponto recomendado
+        if ajuste and vazao_lh:
+            idx = (df_plot[dn_choice] - vazao_lh).abs().idxmin()
+            fig.add_scatter(
+                x=[df_plot.loc[idx, 'Setting (%)']],
+                y=[df_plot.loc[idx, dn_choice]],
+                mode='markers+text',
+                marker=dict(color='red', size=14, symbol='star'),
+                text=[f"💧 {vazao_lh:.0f} L/h"],
+                textposition='top center',
+                name='Ponto recomendado'
+            )
+        # Comparar múltiplos DNs
+        for dn in dn_comparar:
+            if dn in df_valvulas.columns:
+                df_tmp = df_valvulas[['Setting (%)', dn]].copy()
+                fig.add_scatter(x=df_tmp['Setting (%)'], y=df_tmp[dn], mode='lines+markers', name=f"DN {dn}")
+        fig.update_layout(template='plotly_dark', title_font=dict(family='Orbitron, monospace', size=22, color=cor_titulo),
+                          legend=dict(title='Legenda', font=dict(family='Orbitron, monospace', size=12)),
+                          xaxis=dict(title='Setting (%)', showgrid=True, gridcolor='#333'),
+                          yaxis=dict(title='Vazão (L/h)', showgrid=True, gridcolor='#333'),
+                          plot_bgcolor='#111111', paper_bgcolor='#111111')
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Selecione um DN para visualizar o gráfico.")
+
+# ----------------------------
+# Tabela Neon
+# ----------------------------
+logo_base64_fab = carregar_logo_base64("logo_fabricante.png")
+titulo_com_logo("Tabela de referência Danfoss (L/h)", logo_base64_fab, largura=70)
+df_display = df_valvulas.copy()
+def neon_pulse_style(row):
+    styles = []
+    for col in df_display.columns:
+        if col == dn_choice and ajuste is not None:
+            if row[col] == vazao_lh:
+                styles.append(f"background-color: {cor_titulo}; color: #000; font-weight: bold;")
+            else:
+                diff = abs(row[col] - vazao_lh)
+                intensity = max(0, 1 - diff / vazao_lh)
+                styles.append(f"text-shadow: 0 0 {5*intensity}px {cor_titulo}; color: {cor_titulo};")
+        else:
+            styles.append("")
+    return styles
+st.dataframe(df_display.style.apply(neon_pulse_style, axis=1), hide_index=True)
+
+# ----------------------------
+# Exportação Excel
+# ----------------------------
+if ajuste and vazao_lh:
+    excel_bytes = gerar_excel(df_display, ajuste, vazao_lh)
+    st.download_button(
+        label="📥 Baixar Excel",
+        data=excel_bytes,
+        file_name="valvula_resultado.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ----------------------------
 # Funções PDF
 # ----------------------------
 def add_footer_and_background(canvas, doc):
@@ -273,7 +345,6 @@ def gerar_pdf_final(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=None
             )
         fig.update_layout(title="Curvas de Vazão Selecionadas",
                           xaxis_title="Setting (%)", yaxis_title="Vazão (L/h)", template="plotly_dark")
-
         try:
             img_bytes = pio.to_image(fig, format="png", width=800, height=500)
             story.append(Paragraph("Gráfico de Curvas Selecionadas", titulo_style))
@@ -324,13 +395,6 @@ if st.sidebar.button("📄 Exportar PDF"):
         )
     else:
         st.warning("Selecione ao menos um DN para gerar o PDF.")
-
-
-
-
-
-
-
 
 
 
