@@ -176,7 +176,7 @@ st.markdown(f"""
 # ----------------------------
 def limpar_selecoes():
     st.session_state["selecao_cap"] = "Selecione..."
-    st.session_state["dn_escolhido"] = dn_options[0] if dn_options else None
+    st.session_state["dn_escolhido"] = "Selecione..."
     st.session_state["dn_comparativo"] = []
     st.session_state["flow_m3h"] = 0.0
 
@@ -186,6 +186,8 @@ st.sidebar.button("🧹 Limpar seleções", on_click=limpar_selecoes)
 # Seleção de DN e vazão
 # ----------------------------
 col1_dn, col2_vaz = st.columns(2)
+dn_choice = None  # valor padrão
+
 with col1_dn:
     if selecao_cap != "Selecione...":
         wanted_dn_label = capacidade_to_dn.get(int(selecao_cap))
@@ -197,6 +199,11 @@ with col1_dn:
             dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
     else:
         dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
+
+# Se usuário deixou em "Selecione...", tratamos como None
+if dn_choice == "Selecione...":
+    dn_choice = None
+
 with col2_vaz:
     flow_m3h = st.number_input("Digite a vazão de projeto (m³/h):", min_value=0.0, step=0.01, key="flow_m3h")
 # ----------------------------
