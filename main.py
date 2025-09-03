@@ -126,7 +126,7 @@ selecao_cap = st.sidebar.selectbox(
 st.session_state["selecao_cap"] = selecao_cap
 
 capacidade_to_dn = {
-    10000: "DN 15",
+    10000: "DN 15 L/h",
     12000: "DN 15 HF",
     16000: "DN 15 HF",
     20000: "DN 15 HF",
@@ -191,21 +191,26 @@ dn_choice = None  # valor padrão
 with col1_dn:
     if selecao_cap != "Selecione...":
         wanted_dn_label = capacidade_to_dn.get(int(selecao_cap))
-        dn_choice_auto = find_matching_dn_column(wanted_dn_label, dn_options)
-        if dn_choice_auto:
-            dn_choice = dn_choice_auto
-            st.success(f"DN selecionado automaticamente: **{dn_choice}**")
+        
+        # Ignora automaticamente DN que contenha "LF"
+        if wanted_dn_label and "LF" not in wanted_dn_label:
+            dn_choice_auto = find_matching_dn_column(wanted_dn_label, dn_options)
+            if dn_choice_auto:
+                dn_choice = dn_choice_auto
+                st.success(f"DN selecionado automaticamente: **{dn_choice}**")
+            else:
+                dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
         else:
             dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
     else:
         dn_choice = st.selectbox("Escolha o DN", dn_options, key="dn_escolhido")
 
-# Se usuário deixou em "Selecione...", tratamos como None
 if dn_choice == "Selecione...":
     dn_choice = None
 
 with col2_vaz:
     flow_m3h = st.number_input("Digite a vazão de projeto (m³/h):", min_value=0.0, step=0.01, key="flow_m3h")
+
 # ----------------------------
 # Multiselect para comparar DNs
 # ----------------------------
@@ -385,7 +390,7 @@ def gerar_pdf_premium(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=No
             for dn_choice in dn_list:
                 if dn_choice in df_pdf.columns:
                     col_idx = df_pdf.columns.get_loc(dn_choice)
-                    row_idx = (df_pdf[dn_choice] - vazao_lh).abs().idxmin() + 1  # linha mais próxima
+                    row_idx = (df_pdf[dn_choice] - vazao_lh).abs().idxmin() + 1
                     styles_table.add('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), colors.HexColor('#00ffea'))
                     styles_table.add('TEXTCOLOR', (col_idx, row_idx), (col_idx, row_idx), colors.black)
         table.setStyle(styles_table)
@@ -410,8 +415,6 @@ def gerar_pdf_premium(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=No
     buffer.seek(0)
     return buffer.getvalue()
 
-
-# ----------------------------
 # ----------------------------
 # Exportação PDF com fallback DN
 # ----------------------------
@@ -419,10 +422,8 @@ st.sidebar.header("Exportação")
 observacao = st.sidebar.text_area("Observações para incluir no PDF:")
 
 if st.sidebar.button("📄 Exportar PDF"):
-    # Lista de DNs para o PDF
     dn_para_pdf = st.session_state["dn_comparativo"].copy()
     
-    # Se não selecionou nenhum DN, usa o DN principal
     if not dn_para_pdf:
         dn_para_pdf = [dn_choice] if dn_choice else []
     
@@ -436,4 +437,5 @@ if st.sidebar.button("📄 Exportar PDF"):
         )
     else:
         st.warning("Nenhum DN disponível para gerar o PDF.")
+
 
