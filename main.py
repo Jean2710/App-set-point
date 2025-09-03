@@ -304,89 +304,126 @@ if ajuste and vazao_lh:
     )
 
 # ----------------------------
-# Funções PDF
+# Função PDF premium
 # ----------------------------
-def add_footer_and_background(canvas, doc):
-    canvas.setFillColor(colors.black)
-    canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], stroke=0, fill=1)
-    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    canvas.setFillColor(colors.white)
-    canvas.setFont("Helvetica", 8)
-    canvas.drawRightString(doc.pagesize[0] - 1 * cm, 1 * cm, f"Gerado em: {data_hora}")
-
-def gerar_pdf_final(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=None):
+def gerar_pdf_premium(dn_list, df_valvulas, observacao, ajuste=None, vazao_lh=None, logo_path="logo_fabricante.png"):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     story = []
 
     styles = getSampleStyleSheet()
     titulo_style = ParagraphStyle('Titulo', parent=styles['Heading1'], textColor=colors.white,
-                                  alignment=1, fontSize=16, spaceAfter=12)
+                                  alignment=1, fontSize=18, spaceAfter=12)
     texto_style = ParagraphStyle('Texto', parent=styles['Normal'], textColor=colors.white, fontSize=10)
 
-    # Gráfico com fallback
+    # Logo no topo
+    try:
+        logo_bytes = open(logo_path, "rb").read()
+        story.append(Image(BytesIO(logo_bytes), width=6*cm, height=3*cm))
+        story.append(Spacer(1,12))
+    except:
+        story.append(Paragraph("⚠️ Logo não encontrada", texto_style))
+        story.append(Spacer(1,12))
+
+    # Título
+    story.append(Paragraph("Relatório de Válvulas AB-QM", titulo_style))
+    story.append(Spacer(1,12))
+
+    # Gráfico
     if dn_list:
         fig = go.Figure()
         for dn_choice in dn_list:
-            fig.add_trace(go.Scatter(
-                x=df_valvulas["Setting (%)"], y=df_valvulas[dn_choice],
-                mode='lines+markers', name=f"DN {dn_choice}"
-            ))
-        if ajuste and vazao_lh and dn_choice in dn_list:
-            idx = (df_valvulas[dn_choice] - vazao_lh).abs().idxmin()
-            fig.add_scatter(
-                x=[df_valvulas.loc[idx, 'Setting (%)']],
-                y=[df_valvulas.loc[idx, dn_choice]],
-                mode='markers+text',
-                marker=dict(color='red', size=14, symbol='star'),
-                text=[f"💧 {vazao_lh:.0f} L/h"],
-                textposition='top center',
-                name='Ponto recomendado'
-            )
-        fig.update_layout(title="Curvas de Vazão Selecionadas",
-                          xaxis_title="Setting (%)", yaxis_title="Vazão (L/h)", template="plotly_dark")
+            if dn_choice in df_valvulas.columns:
+                fig.add_trace(go.Scatter(
+                    x=df_valvulas["Setting (%)"], y=df_valvulas[dn_choice],
+                    mode='lines+markers', name=f"DN {dn_choice}"
+                ))
+        # Ponto recomendado
+        if ajuste and vazao_lh:
+            for dn_choice in dn_list:
+                if dn_choice in df_valvulas.columns:
+                    idx = (df_valvulas[dn_choice] - vazao_lh).abs().idxmin()
+                    fig.add_scatter(
+                        x=[df_valvulas.loc[idx, 'Setting (%)']],
+                        y=[df_valvulas.loc[idx, dn_choice]],
+                        mode='markers+text',
+                        marker=dict(color='red', size=14, symbol='star'),
+                        text=[f"💧 {vazao_lh:.0f} L/h"],
+                        textposition='top center',
+                        name='Ponto recomendado'
+                    )
+        fig.update_layout(template="plotly_dark", width=800, height=400,
+                          xaxis_title="Setting (%)", yaxis_title="Vazão (L/h)")
         try:
-            img_bytes = pio.to_image(fig, format="png", width=800, height=500)
-            story.append(Paragraph("Gráfico de Curvas Selecionadas", titulo_style))
+            img_bytes = pio.to_image(fig, format="png")
             story.append(Image(BytesIO(img_bytes), width=16*cm, height=10*cm))
-            story.append(Spacer(1, 12))
-        except Exception:
-            story.append(Paragraph("⚠️ Não foi possível gerar o gráfico no PDF (limitação do servidor).", texto_style))
-            story.append(Spacer(1, 12))
+            story.append(Spacer(1,12))
+        except:
+            story.append(Paragraph("⚠️ Gráfico não pôde ser gerado", texto_style))
+            story.append(Spacer(1,12))
 
-    # Tabela
+    # Tabela de DNs
     if dn_list:
-        df_pdf = df_valvulas[['Setting (%)'] + dn_list].copy()
+        df_pdf = df_valvulas[['Setting (%)'] + [dn for dn in dn_list if dn in df_valvulas.columns]].copy()
         data_table = [df_pdf.columns.tolist()] + df_pdf.values.tolist()
         table = Table(data_table, repeatRows=1)
-        table.setStyle(TableStyle([
+        # Estilo tabela
+        styles_table = TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#222222')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.gray),
             ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#111111')),
             ('TEXTCOLOR', (0,1), (-1,-1), colors.white)
-        ]))
+        ])
+        # Destaque do ponto recomendado
+        if ajuste and vazao_lh:
+            for dn_choice in dn_list:
+                if dn_choice in df_pdf.columns:
+                    col_idx = df_pdf.columns.get_loc(dn_choice)
+                    row_idx = (df_pdf[dn_choice] - vazao_lh).abs().idxmin() + 1  # linha mais próxima
+                    styles_table.add('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), colors.HexColor('#00ffea'))
+                    styles_table.add('TEXTCOLOR', (col_idx, row_idx), (col_idx, row_idx), colors.black)
+        table.setStyle(styles_table)
         story.append(table)
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1,12))
 
     # Observações
     if observacao:
         story.append(Paragraph(f"Observações: {observacao}", texto_style))
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1,12))
 
-    doc.build(story, onFirstPage=add_footer_and_background, onLaterPages=add_footer_and_background)
+    # Rodapé e fundo
+    def add_footer(canvas, doc):
+        canvas.setFillColor(colors.black)
+        canvas.rect(0,0,doc.pagesize[0],doc.pagesize[1], stroke=0, fill=1)
+        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica", 8)
+        canvas.drawRightString(doc.pagesize[0]-1*cm, 1*cm, f"Gerado em: {data_hora}")
+
+    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     buffer.seek(0)
     return buffer.getvalue()
 
+
 # ----------------------------
-# Exportação PDF
+# ----------------------------
+# Exportação PDF com fallback DN
 # ----------------------------
 st.sidebar.header("Exportação")
 observacao = st.sidebar.text_area("Observações para incluir no PDF:")
+
 if st.sidebar.button("📄 Exportar PDF"):
-    if st.session_state["dn_comparativo"]:
-        pdf_bytes = gerar_pdf_final(st.session_state["dn_comparativo"], df_valvulas, observacao, ajuste, vazao_lh)
+    # Lista de DNs para o PDF
+    dn_para_pdf = st.session_state["dn_comparativo"].copy()
+    
+    # Se não selecionou nenhum DN, usa o DN principal
+    if not dn_para_pdf:
+        dn_para_pdf = [dn_choice] if dn_choice else []
+    
+    if dn_para_pdf:
+        pdf_bytes = gerar_pdf_premium(dn_para_pdf, df_valvulas, observacao, ajuste, vazao_lh)
         st.download_button(
             label="📥 Baixar PDF",
             data=pdf_bytes,
@@ -394,7 +431,5 @@ if st.sidebar.button("📄 Exportar PDF"):
             mime="application/pdf"
         )
     else:
-        st.warning("Selecione ao menos um DN para gerar o PDF.")
-
-
+        st.warning("Nenhum DN disponível para gerar o PDF.")
 
