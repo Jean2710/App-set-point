@@ -140,15 +140,11 @@ capacidade_to_dn = {
 }
 
 # ----------------------------
-# Setup de cores
-# ----------------------------
-opcoes_cores = ["#00ffea", "#ff00ff", "#00ff00", "#ff0000"]
-cor_titulo = st.sidebar.selectbox("Seleção da cor do título", opcoes_cores)
-cor_hover_logo = st.sidebar.selectbox("Seleção da cor da logo", opcoes_cores)
-
+# Setup de cores (fixo)
+cor_titulo = "#ff0000"
+cor_hover_logo = "#ff0000"
 # ----------------------------
 # Cabeçalho futurista
-# ----------------------------
 logo_path = "valvula.png"
 logo_base64 = carregar_logo_base64(logo_path)
 st.markdown(f"""
@@ -172,19 +168,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# Botão para limpar seleções
-# ----------------------------
-def limpar_selecoes():
-    st.session_state["selecao_cap"] = "Selecione..."
-    st.session_state["dn_escolhido"] = "Selecione..."
-    st.session_state["dn_comparativo"] = []
-    st.session_state["flow_m3h"] = 0.0
-
-st.sidebar.button("🧹 Limpar seleções", on_click=limpar_selecoes)
-
-# ----------------------------
 # Seleção de DN e vazão
-# ----------------------------
 col1_dn, col2_vaz = st.columns(2)
 dn_choice = None  # valor padrão
 
@@ -437,5 +421,15 @@ if st.sidebar.button("📄 Exportar PDF"):
         )
     else:
         st.warning("Nenhum DN disponível para gerar o PDF.")
+# ----------------------------
+
+# Botão para limpar seleções
+def limpar_selecoes():
+    st.session_state["selecao_cap"] = "Selecione..."
+    st.session_state["dn_escolhido"] = "Selecione..."
+    st.session_state["dn_comparativo"] = []
+    st.session_state["flow_m3h"] = 0.0
+
+st.sidebar.button("🧹 Limpar seleções", on_click=limpar_selecoes)
 
 
