@@ -1,6 +1,7 @@
 # ----------------------------
 # Inicialização e instalação condicional
 # ----------------------------
+import streamlit as st
 import sys
 import subprocess
 
@@ -18,7 +19,8 @@ except ModuleNotFoundError:
 # ----------------------------
 # Imports principais
 # ----------------------------
-import streamlit as st
+st.set_page_config(page_title="Valve Calibration AB-QM", layout="wide")
+
 import pandas as pd
 import base64
 from io import BytesIO
